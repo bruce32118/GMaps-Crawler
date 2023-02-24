@@ -2,10 +2,10 @@ from abc import ABC, abstractclassmethod
 
 from rich import inspect, print
 
-from gmaps_crawler.config import StorageMode, settings
-from gmaps_crawler.entities import Place
-from gmaps_crawler.exceptions import MissingEnvVariable
-from gmaps_crawler.facades import SQSEmitter
+from config import StorageMode, settings
+from entities import Place
+from exceptions import MissingEnvVariable
+from facades import SQSEmitter
 
 
 class BaseStorage(ABC):

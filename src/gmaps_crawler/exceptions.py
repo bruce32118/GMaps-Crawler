@@ -1,4 +1,4 @@
-from gmaps_crawler.entities import Place
+from entities import Place
 
 
 class GMapsCrawlerException(Exception):

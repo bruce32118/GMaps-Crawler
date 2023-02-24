@@ -5,8 +5,8 @@ from typing import TypedDict
 import boto3
 from mypy_boto3_sqs.type_defs import SendMessageResultTypeDef
 
-from gmaps_crawler.entities import Place
-from gmaps_crawler.exceptions import CantEmitPlace
+from entities import Place
+from exceptions import CantEmitPlace
 
 logger = logging.getLogger(__name__)
 
