@@ -1,0 +1,13 @@
+crawler_path:
+  SIDE_BAR_RESTAURANT_XPATH: /html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[2]/div/div[1]/div/div/div[2]/div[1]/div[{}]/div/a
+  RESTAURANT_NAME_XPATH: /html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[2]/div[1]/div[1]/div[1]/h1/span[2]
+  RESTAURANT_MENU_XPATH: //a[@aria-label='Menu']
+  RESTAURANT_ADDRESS_XPATH: /html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[9]/div[4]/button/div[1]/div[2]/div[1]
+  RESTAURANT_NUM_REVIEW_XPATH: /html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[2]/div[1]/div[1]/div[2]/div/div[1]/div[2]/span[2]/span[1]/span
+  RATING_XPATH: /html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[2]/div[1]/div[1]/div[2]/div/div[1]/div[2]/span[1]/span/span[1]
+  BASE_URL: https://www.google.com/maps/search/{search}/@25.047058,121.519752,14z/data=!3m1!4b1?
+  SEARCH: SUBWAY
+  START_LOCATION:
+    - TAIPEI:
+      - 25.047058
+      - 121.519752

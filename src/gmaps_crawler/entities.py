@@ -20,3 +20,17 @@ class Place:
                 return val
 
         return None
+
+@dataclass
+class GeoPlace:
+    type: str = 'Point'
+    coordinates: list = field(default_factory=list)
+@dataclass
+class ResInfo:
+    name: str
+    location: GeoPlace
+    address: str
+    href: str
+    rating: float
+    nums_of_review: int
+    menu_list: str

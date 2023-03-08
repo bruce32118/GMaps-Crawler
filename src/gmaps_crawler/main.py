@@ -1,3 +1,4 @@
+from cmath import log
 import logging
 import time
 import random
@@ -9,26 +10,18 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from config import settings
+from config import settings, fileconfig
 from drivers import create_driver
-from entities import Place
-from storages import get_storage
+# from entities import Place
+from entities import GeoPlace, ResInfo
+from storages import get_storage, MongoStorage
+import dataclasses
 
-SIDE_BAR_RESTAURANT_XPATH = "/html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[2]/div/div[1]/div/div/div[2]/div[1]/div[{}]/div/a"
-RESTAURANT_NAME_XPATH = "/html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[2]/div[1]/div[1]/div[1]/h1/span[2]"
-RESTAURANT_MENU_XPATH = "//a[@aria-label='Menu']"
-RESTAURANT_ADDRESS_XPATH = "/html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[9]/div[4]/button/div[1]/div[2]/div[1]"
-RESTAURANT_NUM_REVIEW_XPATH = "/html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[2]/div[1]/div[1]/div[2]/div/div[1]/div[2]/span[2]/span[1]/span"
-# MENU_XPATH = "/html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[9]/div[7]/a"
-RATING_XPATH = "/html/body/div[3]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[2]/div[1]/div[1]/div[2]/div/div[1]/div[2]/span[1]/span/span[1]"
-
-BASE_URL = "https://www.google.com/maps/search/{search}/@24.136807,120.684875,14z/data=!3m1!4b1?hl=en"
-SEARCH = "健康餐盒"
-FINAL_URL = BASE_URL.format(search=SEARCH)
+FINAL_URL = fileconfig.base_url.format(search=fileconfig.search_word)
 
 driver = create_driver()
 logger = logging.getLogger(__name__)
-                            
+
 
 class PlaceDetailRegion(IntEnum):
     TRAITS = 1
@@ -258,97 +251,129 @@ class GMapCrawlerFfE():
 
     def __init__(self):
         self.data = []
+        self.error_count = 0
         self.index = 3
         self.count = 1
-
+        self.storage = get_storage()
         # pass
     
     def get_click_side_bar_menu(self, index):
         try:
-            side_bar = driver.find_element(By.XPATH, SIDE_BAR_RESTAURANT_XPATH.format(index))
+            side_bar = driver.find_element(By.XPATH, fileconfig.side_bar_res_xpath.format(index))
             side_bar.click()
         except Exception:
             # Maybe it's a "complex" view with more data:
             # driver.find_element(By.XPATH, "//*[img[contains(@src, 'schedule_gm')]]").click()
-            return (False, None)
+            return (False, None, None)
         else:
-            return (True, side_bar)
+            return (True, side_bar, side_bar.get_attribute('href'))
 
     def get_restaurant_name(self):
         try:
-            name = driver.find_element(By.XPATH, RESTAURANT_NAME_XPATH)
+            name = driver.find_element(By.XPATH, fileconfig.res_name_xpath)
+            return (True, name.text)
         except Exception:
             # Maybe it's a "complex" view with more data:
             # driver.find_element(By.XPATH, "//*[img[contains(@src, 'schedule_gm')]]").click()
             return (False, None)
-        else:
-            return (True, name.text)
+        # else:
+
 
     def get_restaurant_menu(self):
         try:
-            menu = driver.find_element(By.XPATH, RESTAURANT_MENU_XPATH)
+            menu = driver.find_element(By.XPATH, fileconfig.res_menu_xpath)
+            return (True, menu.text)
         except:
             return (False, None)
-        else:
-            return (True, menu.text)
+        # else:
+            
 
 
     def get_restaurant_num_review(self):
         try:
-            num_review = driver.find_element(By.XPATH, RESTAURANT_NUM_REVIEW_XPATH)
+            num_review = driver.find_element(By.XPATH, fileconfig.res_num_review_xpath)
+            return (True, num_review.text.replace('(', '').replace(')','').replace(' reviews', '').replace(' review', '').replace(' 則評論', ''))
         except:
-            return (False, None)
-        else:
-            return (True, num_review.text)
+            return (False, 0)
+        # else:
+            
 
     def get_restaurant_rating(self):
         try:
-            rating = driver.find_element(By.XPATH, RATING_XPATH)
+            rating = driver.find_element(By.XPATH, fileconfig.res_rating_xpath)
+            return (True, float(rating.text))
         except:
             return (False, None)
-        else:
-            return (True, rating.text)
+        # else:
+
 
     def get_restaurant_address(self):
         try:
-            address = driver.find_element(By.XPATH, RESTAURANT_ADDRESS_XPATH)
+            address = driver.find_element(By.XPATH, fileconfig.res_address_xpath)
+            return (True, address.text)
         except:
             return (False, None)
-        else:
-            return (True, address.text)
+        # else:
+
 
     def get_places(self):
         # if self.get_click_side_bar_menu(self.index):
-        while self.get_click_side_bar_menu(self.index)[0]:
-            res_name = self.get_restaurant_name()[1]
-            res_address = self.get_restaurant_address()[1]
-            res_rating = self.get_restaurant_rating()[1]
-            res_num_review = self.get_restaurant_num_review()[1]
-            res_menu = self.get_restaurant_menu()[1]
+        while True:
+            if self.error_count > 5:
+                break
+            (side_bar_exist_or_not, side_bar, href) = self.get_click_side_bar_menu(self.index)
+            logger.info("[bold blue] == sleep {} second to load information ==[/]".format(2), extra={"markup": True})
+            time.sleep(2)
+            if side_bar_exist_or_not:
+            
+                name = self.get_restaurant_name()[1]
+                
+                if fileconfig.search_word not in name.upper():
+                    self.error_count += 1
+                    continue
 
-            logger.info("[bold pink] == name: {}, address: {}, rating: {}, res_num_review: {}, res_menu: {} ==[/]".format(res_name, res_address, res_rating, res_num_review, res_menu), extra={"markup": True})
-            if self.count * 10 + 3 == self.index:
-                self.scroll_down(self.get_click_side_bar_menu(self.index)[1])
-                self.count += 1
-                rn = random.randint(1,10)
+                address = self.get_restaurant_address()[1]
+                rating = self.get_restaurant_rating()[1]
+                nums_of_review = self.get_restaurant_num_review()[1]
+                menu_list = self.get_restaurant_menu()[1]
+                # href = self.get_click_side_bar_menu(self.index)[2]
+                location = GeoPlace()
+                res = ResInfo(name, location, address, href, rating, nums_of_review, menu_list)
+                # geo = GeoPlace()
+                res.location.coordinates.append(float(str(res.href).split('!4d')[1].split('!')[0]))
+                res.location.coordinates.append(float(str(res.href).split('!3d')[1].split('!4d')[0]))
+
+                logger.info("[bold] == resinfo {} == [/]".format(res), extra={"markup": True})
+                # logger.info("[bold] == resinfo {} == [/]".format(dataclasses.asdict(res)), extra={"markup": True})
+                # logger.info("[bold pink] == name: {}, address: {}, rating: {}, res_num_review: {}, res_menu: {}, res_href: {}, res_lat: {}, res_lng: {}==[/]".format(res_name, res_address, res_rating, res_num_review, res_menu, res_href, res_lat, res_lng), extra={"markup": True})
+                self.scroll_down(side_bar)
+
+                rn = random.randint(1,5)
                 logger.info("[bold blue] == sleep {} second for scroll down ==[/]".format(rn), extra={"markup": True})
-                time.sleep(5)
-            self.index += 2
-            rn = random.randint(1,5)
-            logger.info("[bold blue] == sleep {} second for get next side bar ==[/]".format(rn), extra={"markup": True})
-            time.sleep(rn)
+                time.sleep(rn)
+                logger.info("[bold blue] == count {}  ==[/]".format(self.count), extra={"markup": True})
+                self.count += 1
+                self.index += 2
+                rn = random.randint(1,5)
+                logger.info("[bold blue] == sleep {} second for get next side bar ==[/]".format(rn), extra={"markup": True})
+                time.sleep(rn)
+                
+                self.data.append(dataclasses.asdict(res))
+            else:
+                break
 
+        logger.info("[bold blue] == save data to mongo ==[/]".format(rn), extra={"markup": True})
+        self.storage.save(self.data)
 
-        
     def scroll_down(self, iframe):
 
         scroll_origin = ScrollOrigin.from_element(iframe)
-        ActionChains(driver).scroll_from_origin(scroll_origin, 0, 500).perform()
+        ActionChains(driver).scroll_from_origin(scroll_origin, 0, 1000).perform()
 
 if __name__ == "__main__":
     logger.info("[bold yellow]== * Running Gmaps Crawler ==[/]", extra={"markup": True})
     logger.info("[yellow]Settings:[/yellow] %s", settings.dict(), extra={"markup": True})
-
+    logger.info("[yellow]Settings:[/yellow] %s", vars(fileconfig), extra={"markup": True})
     driver.get(FINAL_URL)
     crawler = GMapCrawlerFfE()
     crawler.get_places()
